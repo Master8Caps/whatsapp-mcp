@@ -1,5 +1,7 @@
+# ──────────────────────────────────────────────
 # Stage 1: Build the Go WhatsApp bridge
-FROM golang:1.24-bookworm AS go-builder
+# ──────────────────────────────────────────────
+FROM golang:1.22-bookworm AS go-builder
 
 WORKDIR /app/whatsapp-bridge
 
@@ -12,11 +14,13 @@ RUN go mod download
 COPY whatsapp-bridge/ ./
 RUN CGO_ENABLED=1 GOOS=linux go build -o /whatsapp-bridge .
 
+# ──────────────────────────────────────────────
 # Stage 2: Final image with Python MCP server
+# ──────────────────────────────────────────────
 FROM python:3.12-slim-bookworm
 
-# Install curl for uv installer (no ffmpeg - too large for free tier)
-RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+# Install uv (fast Python package manager) and ffmpeg (optional, for audio)
+RUN apt-get update && apt-get install -y ffmpeg curl && rm -rf /var/lib/apt/lists/*
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 ENV PATH="/root/.cargo/bin:/root/.local/bin:$PATH"
 

@@ -248,5 +248,5 @@ def download_media(message_id: str, chat_jid: str) -> Dict[str, Any]:
         }
 
 if __name__ == "__main__":
-    # Run as SSE MCP server - Manus connector expects /sse endpoint
-    mcp.run(transport='sse')
+    # Run as streamable-http MCP server - Manus connector points to /mcp
+    mcp.run(transport='streamable-http')

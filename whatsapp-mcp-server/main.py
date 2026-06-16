@@ -1,4 +1,5 @@
 from typing import List, Dict, Any, Optional
+import urllib.request
 from mcp.server.fastmcp import FastMCP
 from whatsapp import (
     search_contacts as whatsapp_search_contacts,
@@ -245,6 +246,24 @@ def download_media(message_id: str, chat_jid: str) -> Dict[str, Any]:
             "success": False,
             "message": "Failed to download media"
         }
+
+# Add a /qr proxy route so the QR code page is accessible on port 3000
+# (The Go bridge serves /qr on port 8080 internally)
+from starlette.responses import Response
+
+@mcp.custom_route("/qr", methods=["GET"])
+async def qr_proxy(request):
+    try:
+        with urllib.request.urlopen("http://localhost:8080/qr", timeout=5) as resp:
+            content = resp.read()
+            content_type = resp.headers.get("Content-Type", "image/png")
+            return Response(content=content, media_type=content_type)
+    except Exception as e:
+        return Response(
+            content=f"QR not ready yet: {e}. Try again in a few seconds.".encode(),
+            media_type="text/plain",
+            status_code=503
+        )
 
 if __name__ == "__main__":
     # Run as SSE MCP server so Manus can connect via Custom MCP URL

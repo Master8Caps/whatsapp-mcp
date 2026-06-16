@@ -11,5 +11,5 @@ restartPolicyMaxRetries = 10
 # The Go bridge REST API runs internally on port 8080
 [[deploy.healthchecks]]
 type = "path"
-path = "/mcp"
+path = "/sse"
 port = 3000

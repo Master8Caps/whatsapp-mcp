@@ -21,7 +21,10 @@ import (
 	"github.com/mdp/qrterminal"
 
 	"bytes"
+	"image/png"
+	"sync"
 
+	"rsc.io/qr"
 	"go.mau.fi/whatsmeow"
 	waProto "go.mau.fi/whatsmeow/binary/proto"
 	"go.mau.fi/whatsmeow/store/sqlstore"
@@ -29,6 +32,12 @@ import (
 	"go.mau.fi/whatsmeow/types/events"
 	waLog "go.mau.fi/whatsmeow/util/log"
 	"google.golang.org/protobuf/proto"
+)
+
+// Global QR code storage so the HTTP endpoint can serve it
+var (
+	currentQRCode string
+	qrMu          sync.Mutex
 )
 
 // Message represents a chat message for our client
@@ -774,6 +783,26 @@ func startRESTServer(client *whatsmeow.Client, messageStore *MessageStore, port 
 		})
 	})
 
+	// Handler for serving QR code as PNG image
+	http.HandleFunc("/qr", func(w http.ResponseWriter, r *http.Request) {
+		qrMu.Lock()
+		code := currentQRCode
+		qrMu.Unlock()
+		if code == "" {
+			http.Error(w, "No QR code available. Either already authenticated or not yet generated.", http.StatusNotFound)
+			return
+		}
+		// Encode QR code as PNG image
+		qrCode, err := qr.Encode(code, qr.M)
+		if err != nil {
+			http.Error(w, "Failed to generate QR code image", http.StatusInternalServerError)
+			return
+		}
+		qrCode.Scale = 8
+		w.Header().Set("Content-Type", "image/png")
+		png.Encode(w, qrCode.Image())
+	})
+
 	// Start the server
 	serverAddr := fmt.Sprintf(":%d", port)
 	fmt.Printf("Starting REST API server on %s...\n", serverAddr)
@@ -853,9 +882,12 @@ func main() {
 		}
 	})
 
+		// Start REST API server early so /qr endpoint is available during QR code scan
+	// Pass a placeholder messageStore; it will be fully initialised before any messages arrive
+	startRESTServer(client, messageStore, 8080)
+
 	// Create channel to track connection success
 	connected := make(chan bool, 1)
-
 	// Connect to WhatsApp
 	if client.Store.ID == nil {
 		// No ID stored, this is a new client, need to pair with phone
@@ -871,6 +903,11 @@ func main() {
 			if evt.Event == "code" {
 				fmt.Println("\nScan this QR code with your WhatsApp app:")
 				qrterminal.GenerateHalfBlock(evt.Code, qrterminal.L, os.Stdout)
+				// Store QR code for HTTP endpoint
+				qrMu.Lock()
+				currentQRCode = evt.Code
+				qrMu.Unlock()
+				fmt.Println("\nQR code also available at: /qr")
 			} else if evt.Event == "success" {
 				connected <- true
 				break
@@ -903,11 +940,7 @@ func main() {
 		return
 	}
 
-	fmt.Println("\n✓ Connected to WhatsApp! Type 'help' for commands.")
-
-	// Start REST API server
-	startRESTServer(client, messageStore, 8080)
-
+		fmt.Println("\n✓ Connected to WhatsApp! Type 'help' for commands.")
 	// Create a channel to keep the main goroutine alive
 	exitChan := make(chan os.Signal, 1)
 	signal.Notify(exitChan, syscall.SIGINT, syscall.SIGTERM)

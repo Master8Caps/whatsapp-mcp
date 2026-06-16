@@ -29,12 +29,15 @@ WORKDIR /app
 # Copy Go bridge binary from build stage
 COPY --from=go-builder /whatsapp-bridge /app/whatsapp-bridge
 
-# Copy Python MCP server
-COPY whatsapp-mcp-server/ /app/whatsapp-mcp-server/
+# Copy dependency files first (separate layer - only re-runs when deps change)
+COPY whatsapp-mcp-server/pyproject.toml whatsapp-mcp-server/uv.lock /app/whatsapp-mcp-server/
 
 # Install Python dependencies
 WORKDIR /app/whatsapp-mcp-server
-RUN uv sync --frozen
+RUN uv sync --frozen --no-cache
+
+# Copy rest of Python MCP server code
+COPY whatsapp-mcp-server/ /app/whatsapp-mcp-server/
 
 # Create persistent storage directory for WhatsApp session data
 RUN mkdir -p /data/store

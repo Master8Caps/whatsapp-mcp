@@ -8,16 +8,25 @@ echo "=== WhatsApp MCP Server Starting ==="
 # Mount a Railway Volume at /data to persist across restarts.
 mkdir -p /data/store
 
-# Start the Python MCP SSE server in the background (stays alive permanently)
+# Start the Python MCP SSE server FIRST so Railway's port check passes
 echo "Starting Python MCP server on port 3000..."
 cd /app/whatsapp-mcp-server
 uv run main.py &
 MCP_PID=$!
-echo "MCP server started (PID: $MCP_PID)"
 
-# Run the Go bridge in a restart loop
-# It will exit after QR timeout if not scanned, then restart to show a fresh QR
+# Wait for the Python MCP server to be ready on port 3000
+echo "Waiting for MCP server to be ready..."
+for i in $(seq 1 30); do
+    if curl -s --max-time 2 http://localhost:3000/sse > /dev/null 2>&1; then
+        echo "MCP server is ready!"
+        break
+    fi
+    sleep 1
+done
+
 echo "Starting WhatsApp Go bridge restart loop..."
+# Run the Go bridge in a restart loop so it keeps generating fresh QR codes
+# until the user scans one, then stays connected permanently
 while true; do
     echo "--- Starting Go bridge ---"
     cd /data
@@ -25,6 +34,6 @@ while true; do
     BRIDGE_PID=$!
     wait $BRIDGE_PID
     EXIT_CODE=$?
-    echo "--- Go bridge exited (code: $EXIT_CODE). Restarting in 3 seconds... ---"
-    sleep 3
+    echo "--- Go bridge exited (code: $EXIT_CODE). Restarting in 5 seconds... ---"
+    sleep 5
 done

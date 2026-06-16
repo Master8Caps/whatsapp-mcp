@@ -6,10 +6,6 @@ dockerfilePath = "Dockerfile"
 startCommand = "/app/docker-entrypoint.sh"
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 10
-
-# The public domain is mapped to port 3000 (Python MCP server)
-# The Go bridge REST API runs internally on port 8080
-[[deploy.healthchecks]]
-type = "path"
-path = "/sse"
-port = 3000
+# No healthcheck - the container manages its own lifecycle
+# Port 3000: Python MCP SSE server (public domain)
+# Port 8080: Go WhatsApp bridge (internal only)

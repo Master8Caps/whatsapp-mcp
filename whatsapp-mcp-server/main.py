@@ -248,6 +248,6 @@ def download_media(message_id: str, chat_jid: str) -> Dict[str, Any]:
         }
 
 if __name__ == "__main__":
-    # Run as SSE MCP server so Manus can connect via Custom MCP URL
-    # SSE transport is supported by all versions of the mcp library
-    mcp.run(transport='sse')
+    # Run as streamable-http MCP server so Manus can connect via Custom MCP URL
+    # streamable-http is the modern transport required by manus-mcp-cli
+    mcp.run(transport='streamable-http')

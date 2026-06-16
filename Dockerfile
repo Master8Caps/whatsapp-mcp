@@ -43,6 +43,8 @@ RUN mkdir -p /data/store
 COPY docker-entrypoint.sh /app/docker-entrypoint.sh
 RUN chmod +x /app/docker-entrypoint.sh
 
-EXPOSE 8080
+# Port 8080: Go bridge REST API (WhatsApp send/receive)
+# Port 3000: Python MCP server (Manus Custom MCP endpoint)
+EXPOSE 8080 3000
 
 ENTRYPOINT ["/app/docker-entrypoint.sh"]

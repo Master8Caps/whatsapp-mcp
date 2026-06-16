@@ -5,4 +5,11 @@ dockerfilePath = "Dockerfile"
 [deploy]
 startCommand = "/app/docker-entrypoint.sh"
 restartPolicyType = "on_failure"
-restartPolicyMaxRetries = 5
+restartPolicyMaxRetries = 10
+
+# The public domain is mapped to port 3000 (Python MCP server)
+# The Go bridge REST API runs internally on port 8080
+[[deploy.healthchecks]]
+type = "path"
+path = "/mcp"
+port = 3000

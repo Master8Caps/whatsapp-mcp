@@ -886,42 +886,40 @@ func main() {
 	// Pass a placeholder messageStore; it will be fully initialised before any messages arrive
 	startRESTServer(client, messageStore, 8080)
 
-	// Create channel to track connection success
-	connected := make(chan bool, 1)
-	// Connect to WhatsApp
+		// Connect to WhatsApp
 	if client.Store.ID == nil {
-		// No ID stored, this is a new client, need to pair with phone
-		qrChan, _ := client.GetQRChannel(context.Background())
-		err = client.Connect()
-		if err != nil {
-			logger.Errorf("Failed to connect: %v", err)
-			return
-		}
-
-		// Print QR code for pairing with phone
-		for evt := range qrChan {
-			if evt.Event == "code" {
-				fmt.Println("\nScan this QR code with your WhatsApp app:")
-				qrterminal.GenerateHalfBlock(evt.Code, qrterminal.L, os.Stdout)
-				// Store QR code for HTTP endpoint
-				qrMu.Lock()
-				currentQRCode = evt.Code
-				qrMu.Unlock()
-				fmt.Println("\nQR code also available at: /qr")
-			} else if evt.Event == "success" {
-				connected <- true
-				break
+		// No ID stored — loop reconnects so QR codes keep refreshing until scanned
+		paired := false
+		for !paired {
+			qrChan, _ := client.GetQRChannel(context.Background())
+			err = client.Connect()
+			if err != nil {
+				logger.Errorf("Failed to connect: %v", err)
+				time.Sleep(5 * time.Second)
+				continue
+			}
+			for evt := range qrChan {
+				if evt.Event == "code" {
+					fmt.Println("\nScan this QR code with your WhatsApp app:")
+					qrterminal.GenerateHalfBlock(evt.Code, qrterminal.L, os.Stdout)
+					// Store QR code for HTTP endpoint
+					qrMu.Lock()
+					currentQRCode = evt.Code
+					qrMu.Unlock()
+					fmt.Println("\nQR code also available at: /qr")
+				} else if evt.Event == "success" {
+					paired = true
+					break
+				} else {
+					// timeout or error — disconnect and reconnect for fresh QR codes
+					logger.Infof("QR channel event: %s — reconnecting for fresh QR codes...", evt.Event)
+					client.Disconnect()
+					time.Sleep(2 * time.Second)
+					break
+				}
 			}
 		}
-
-		// Wait for connection
-		select {
-		case <-connected:
-			fmt.Println("\nSuccessfully connected and authenticated!")
-		case <-time.After(3 * time.Minute):
-			logger.Errorf("Timeout waiting for QR code scan")
-			return
-		}
+		fmt.Println("\nSuccessfully connected and authenticated!")
 	} else {
 		// Already logged in, just connect
 		err = client.Connect()
@@ -929,7 +927,6 @@ func main() {
 			logger.Errorf("Failed to connect: %v", err)
 			return
 		}
-		connected <- true
 	}
 
 	// Wait a moment for connection to stabilize

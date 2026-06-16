@@ -1,5 +1,5 @@
 # Stage 1: Build the Go WhatsApp bridge
-FROM golang:1.22-bookworm AS go-builder
+FROM golang:1.24-bookworm AS go-builder
 
 WORKDIR /app/whatsapp-bridge
 

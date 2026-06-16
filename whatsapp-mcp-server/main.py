@@ -15,8 +15,8 @@ from whatsapp import (
     download_media as whatsapp_download_media
 )
 
-# Initialize FastMCP server
-mcp = FastMCP("whatsapp")
+# Initialize FastMCP server — bind to all interfaces on port 3000 for HTTP transport
+mcp = FastMCP("whatsapp", host="0.0.0.0", port=3000)
 
 @mcp.tool()
 def search_contacts(query: str) -> List[Dict[str, Any]]:
@@ -247,5 +247,5 @@ def download_media(message_id: str, chat_jid: str) -> Dict[str, Any]:
         }
 
 if __name__ == "__main__":
-    # Initialize and run the server
-    mcp.run(transport='stdio')
+    # Run as HTTP MCP server so Manus can connect via Custom MCP URL
+    mcp.run(transport='streamable-http')
